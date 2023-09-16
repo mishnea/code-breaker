@@ -1,4 +1,4 @@
-from msvcrt import getwch
+from readchar import readchar
 import os
 import random
 from string import ascii_lowercase
@@ -20,6 +20,13 @@ def invert(s):
     return colorama.Back.WHITE + colorama.Fore.BLACK + s + colorama.Style.RESET_ALL
 
 
+def clear():
+    if os.name == "nt":
+        os.system("cls")
+    else:
+        os.system("clear")
+
+
 class Game:
     def __init__(self, rows):
         self.word = random.choice(words)
@@ -33,7 +40,7 @@ class Game:
         return random.choices(ascii_lowercase, weights, k=len(self.word))
 
     def print(self):
-        os.system("cls")
+        clear()
         # Score row
         print(invert(f"Attempts: {self.attempts}".center(self.width)))
         # Scrambled rows
@@ -64,9 +71,9 @@ class Game:
     def start(self):
         while True:
             self.print()
-            c = getwch()
-            if c == "\x03":
-                print("Keyboard Interrupt")
+            c = readchar()
+            if c == "\x1b":
+                # escape pressed
                 break
             replaced = self.replace(c)
             if not replaced:
