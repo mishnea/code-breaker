@@ -31,12 +31,17 @@ class Game:
     def __init__(self, rows):
         self.word = random.choice(words)
         self.width = 20
+        weights = [1 + self.word.count(c) for c in ascii_lowercase]
+        self.bottom_row = random.choices(ascii_lowercase, weights, k=len(self.word))
         self.matrix = [self.genrow() for _ in range(rows)]
-        self.bottom_row = self.genrow()
         self.attempts = 0
 
+    @property
+    def remaining(self):
+        return [d for c, d in zip(self.bottom_row, self.word) if c != d]
+    
     def genrow(self):
-        weights = [1 + (self.word.count(c) > 1) for c in ascii_lowercase]
+        weights = [1 + self.remaining.count(c) for c in ascii_lowercase]
         return random.choices(ascii_lowercase, weights, k=len(self.word))
 
     def print(self):
