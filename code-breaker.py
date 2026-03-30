@@ -1,11 +1,14 @@
 #!/usr/bin/env python3
 
-from readchar import readchar
+from dataclasses import dataclass
 import os
 import random
+
+from readchar import readkey, key
 from string import ascii_lowercase
 import colorama
 from wordlist import words
+
 
 colorama.init()
 
@@ -33,13 +36,99 @@ def clear():
         os.system("clear")
 
 
+class Menu:
+    def __init__(self, config):
+        self.config = config
+        self.items = []
+        self.current = 0
+
+    def print(self):
+        clear()
+        for i, item in enumerate(self.items):
+            title = f"{i}. {item['title']}"
+            if item["value"]:
+                title += f": {item["value"]()}"
+            if i == self.current:
+                print(invert(title))
+            else:
+                print(title)
+
+    def mainloop(self):
+        self.print()
+        while True:
+            k = readkey()
+            if k == key.UP:
+                self.current = (self.current - 1) % len(self.items)
+            if k == key.DOWN:
+                self.current = (self.current + 1) % len(self.items)
+            if k == key.RIGHT:
+                self.items[self.current]["action"]()
+            try:
+                index = int(k)
+                if index >= len(self.items):
+                    continue
+                self.current = index
+                self.items[index]["action"]()
+            except ValueError:
+                pass
+            self.print()
+
+
+class TopMenu(Menu):
+    def __init__(self, config):
+        super().__init__(config)
+        self.items = [
+            {"title": "Start", "action": self.onstart, "value": None},
+            {"title": "Settings", "action": self.onsettings, "value": None},
+        ]
+
+    def onstart(self):
+        game = Game(self.config)
+        game.mainloop()
+
+    def onsettings(self):
+        settings = SettingsMenu(self.config)
+        settings.mainloop()
+
+
+class SettingsMenu(Menu):
+    def __init__(self, config):
+        super().__init__(config)
+        self.items = [
+            {
+                "title": "Show target",
+                "action": self.onshowtarget,
+                "value": lambda: "yes" if config.showtarget else "no",
+            },
+            {
+                "title": "Show colours",
+                "action": self.oncolors,
+                "value": lambda: "yes" if config.colors else "no",
+            },
+        ]
+
+    def onshowtarget(self):
+        self.config.showtarget = not self.config.showtarget
+
+    def oncolors(self):
+        self.config.colors = not self.config.colors
+
+
+@dataclass
+class Config:
+    rows: int = 5
+    showtarget: bool = True
+    colors: bool = True
+
+
 class Game:
-    def __init__(self, rows):
+    def __init__(self, config):
+        self.config = config
         self.target = random.choice(words)
         self.width = 21
         weights = [1 + self.target.count(c) for c in ascii_lowercase]
         self.player_row = random.choices(ascii_lowercase, weights, k=len(self.target))
-        self.random_rows = [self.genrow() for _ in range(rows)]
+        self.random_rows = [self.genrow() for _ in range(config.rows)]
         self.attempts = 0
 
     @property
@@ -98,14 +187,13 @@ class Game:
         self.random_rows = self.random_rows[1:]
         self.random_rows.append(self.genrow())
 
-    def start(self):
+    def mainloop(self):
         self.print()
         while True:
-            c = readchar()
-            if c == "\x1b":
-                # escape pressed
+            k = readkey()
+            if k == key.UP:
                 break
-            replaced = self.replace(c)
+            replaced = self.replace(k)
             if not replaced:
                 continue
             self.shift()
@@ -117,5 +205,6 @@ class Game:
 
 
 if __name__ == "__main__":
-    game = Game(5)
-    game.start()
+    config = Config()
+    menu = TopMenu(config)
+    menu.mainloop()
