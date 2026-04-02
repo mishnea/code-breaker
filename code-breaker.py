@@ -13,15 +13,19 @@ from wordlist import words
 colorama.init()
 
 
-def good(s):
+def green(s):
     return colorama.Fore.GREEN + s + colorama.Fore.RESET
 
 
-def bad(s):
+def red(s):
     return colorama.Fore.RED + s + colorama.Fore.RESET
 
 
-def info(s):
+def yellow(s):
+    return colorama.Fore.YELLOW + s + colorama.Fore.RESET
+
+
+def blue(s):
     return colorama.Fore.BLUE + s + colorama.Fore.RESET
 
 
@@ -45,7 +49,7 @@ class Menu:
     def print(self):
         clear()
         for i, item in enumerate(self.items):
-            title = f"{i}. {item['title']}"
+            title = f"{i + 1}. {item['title']}"
             if item["value"]:
                 title += f": {item["value"]()}"
             if i == self.current:
@@ -57,20 +61,25 @@ class Menu:
         self.print()
         while True:
             k = readkey()
+            special = None
             if k == key.UP:
                 self.current = (self.current - 1) % len(self.items)
             if k == key.DOWN:
                 self.current = (self.current + 1) % len(self.items)
+            if k == key.LEFT:
+                break
             if k == key.RIGHT:
-                self.items[self.current]["action"]()
+                special = self.items[self.current]["action"]()
             try:
-                index = int(k)
-                if index >= len(self.items):
+                index = int(k) - 1
+                if not (0 <= index < len(self.items)):
                     continue
                 self.current = index
-                self.items[index]["action"]()
+                special = self.items[index]["action"]()
             except ValueError:
                 pass
+            if special == "break":
+                break
             self.print()
 
 
@@ -80,11 +89,12 @@ class TopMenu(Menu):
         self.items = [
             {"title": "Start", "action": self.onstart, "value": None},
             {"title": "Settings", "action": self.onsettings, "value": None},
+            {"title": "Quit", "action": lambda: "break", "value": None},
         ]
 
     def onstart(self):
-        game = Game(self.config)
-        game.mainloop()
+        startmenu = StartMenu(self.config)
+        startmenu.mainloop()
 
     def onsettings(self):
         settings = SettingsMenu(self.config)
@@ -101,24 +111,62 @@ class SettingsMenu(Menu):
                 "value": lambda: "yes" if config.showtarget else "no",
             },
             {
-                "title": "Show colours",
-                "action": self.oncolors,
-                "value": lambda: "yes" if config.colors else "no",
+                "title": "Show hints",
+                "action": self.onhints,
+                "value": lambda: "yes" if config.hints else "no",
             },
+            {"title": "Back", "action": lambda: "break", "value": None},
         ]
 
     def onshowtarget(self):
         self.config.showtarget = not self.config.showtarget
 
-    def oncolors(self):
-        self.config.colors = not self.config.colors
+    def onhints(self):
+        self.config.hints = not self.config.hints
+
+
+class StartMenu(Menu):
+    def __init__(self, config):
+        super().__init__(config)
+        self.items = [
+            {
+                "title": "Custom",
+                "action": self.oncustom,
+                "value": None,
+            },
+            {
+                "title": "Easy",
+                "action": self.oneasy,
+                "value": None,
+            },
+            {
+                "title": "Hard",
+                "action": self.onhard,
+                "value": None,
+            },
+            {"title": "Back", "action": lambda: "break", "value": None},
+        ]
+
+    def oncustom(self):
+        game = Game(self.config)
+        game.mainloop()
+
+    def oneasy(self):
+        easyconfig = Config(showtarget=True, hints=True)
+        game = Game(easyconfig)
+        game.mainloop()
+
+    def onhard(self):
+        hardconfig = Config(showtarget=False, hints=False)
+        game = Game(hardconfig)
+        game.mainloop()
 
 
 @dataclass
 class Config:
     rows: int = 5
     showtarget: bool = True
-    colors: bool = True
+    hints: bool = True
 
 
 class Game:
@@ -159,18 +207,26 @@ class Game:
         for row in self.random_rows[::-1]:
             formatted = []
             for index, c in enumerate(row):
-                if c == self.target[index]:
-                    formatted.append(info(c))
+                if c == self.target[index] and self.config.hints:
+                    formatted.append(blue(c))
                 else:
                     formatted.append(c)
             print(self.center(" ".join(formatted)))
         # Player row
-        formatted = " ".join(
-            good(c) if c == d else bad(c) for c, d in zip(self.player_row, self.target)
-        )
+        formatted = ""
+        for c, d in zip(self.player_row, self.target):
+            if c == d:
+                formatted += green(c)
+            elif self.target.count(c) - self.player_row.count(c) >= 0:
+                formatted += yellow(c)
+            else:
+                formatted += red(c)
+            formatted += " "
+        formatted = formatted[:-1]
         print(self.center(formatted))
         # Target row
-        print(invert(" ".join(list(self.target)).center(self.width)))
+        if self.config.showtarget:
+            print(invert(" ".join(list(self.target)).center(self.width)))
 
     def replace(self, r):
         if r == "\n" or r == " ":
@@ -191,7 +247,7 @@ class Game:
         self.print()
         while True:
             k = readkey()
-            if k == key.UP:
+            if k == key.LEFT:
                 break
             replaced = self.replace(k)
             if not replaced:
