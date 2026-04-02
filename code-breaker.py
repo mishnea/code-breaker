@@ -40,43 +40,61 @@ def clear():
         os.system("clear")
 
 
+@dataclass
+class Config:
+    rows: int = 5
+    showtarget: bool = True
+    hints: bool = True
+
+
 class Menu:
     def __init__(self, config):
         self.config = config
         self.items = []
         self.current = 0
+        self.state = None
 
     def print(self):
         clear()
         for i, item in enumerate(self.items):
-            title = f"{i + 1}. {item['title']}"
+            index = i + i
+            title = item["title"]
             try:
-                title += f": {item["value"]()}"
+                value = item["value"]()
+                full = f"{index}. {title}: {value}"
             except KeyError:
-                pass
-
+                value = None
+                full = f"{index}. {title}"
             if i == self.current:
-                print(invert(title))
+                if self.state == "focus":
+                    print(f"{index}. {title}: {invert(str(value))}")
+                else:
+                    print(invert(full))
                 continue
-
             try:
-                print(item["style"](title))
+                print(item["style"](full))
             except KeyError:
-                print(title)
+                print(full)
 
     def mainloop(self):
         self.print()
         while True:
             k = readkey()
+            if self.state == "focus":
+                if k == key.LEFT or k == key.RIGHT:
+                    self.state = None
+                self.items[self.current]["focus"](k)
+                self.print()
+                continue
             special = None
             if k == key.UP:
                 self.current = (self.current - 1) % len(self.items)
             if k == key.DOWN:
                 self.current = (self.current + 1) % len(self.items)
-            if k == key.LEFT:
-                break
             if k == key.RIGHT:
                 special = self.items[self.current]["action"]()
+            if k == key.LEFT:
+                break
             try:
                 index = int(k) - 1
                 if not (0 <= index < len(self.items)):
@@ -119,6 +137,12 @@ class SettingsMenu(Menu):
         super().__init__(config)
         self.items = [
             {
+                "title": "Rows",
+                "action": self.onrows,
+                "value": lambda: config.rows,
+                "focus": self.withrows,
+            },
+            {
                 "title": "Show target",
                 "action": self.onshowtarget,
                 "value": lambda: "yes" if config.showtarget else "no",
@@ -130,6 +154,25 @@ class SettingsMenu(Menu):
             },
             {"title": "Back", "action": lambda: "break", "style": blue},
         ]
+
+    def onrows(self):
+        self.state = "focus"
+
+    def withrows(self, k):
+        if k == key.UP:
+            self.config.rows = 2 + (self.config.rows - 1) % 8
+            return
+        if k == key.DOWN:
+            self.config.rows = 2 + (self.config.rows - 3) % 8
+            return
+        try:
+            rows = int(k)
+            if not (2 <= rows < 10):
+                return
+            self.config.rows = rows
+            self.state = None
+        except ValueError:
+            pass
 
     def onshowtarget(self):
         self.config.showtarget = not self.config.showtarget
@@ -170,13 +213,6 @@ class StartMenu(Menu):
         hardconfig = Config(showtarget=False, hints=False)
         game = Game(hardconfig)
         game.mainloop()
-
-
-@dataclass
-class Config:
-    rows: int = 5
-    showtarget: bool = True
-    hints: bool = True
 
 
 class Game:
