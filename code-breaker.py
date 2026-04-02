@@ -50,11 +50,18 @@ class Menu:
         clear()
         for i, item in enumerate(self.items):
             title = f"{i + 1}. {item['title']}"
-            if item["value"]:
+            try:
                 title += f": {item["value"]()}"
+            except KeyError:
+                pass
+
             if i == self.current:
                 print(invert(title))
-            else:
+                continue
+
+            try:
+                print(item["style"](title))
+            except KeyError:
                 print(title)
 
     def mainloop(self):
@@ -87,9 +94,15 @@ class TopMenu(Menu):
     def __init__(self, config):
         super().__init__(config)
         self.items = [
-            {"title": "Start", "action": self.onstart, "value": None},
-            {"title": "Settings", "action": self.onsettings, "value": None},
-            {"title": "Quit", "action": lambda: "break", "value": None},
+            {
+                "title": "Start",
+                "action": self.onstart,
+            },
+            {
+                "title": "Settings",
+                "action": self.onsettings,
+            },
+            {"title": "Quit", "action": lambda: "break", "style": red},
         ]
 
     def onstart(self):
@@ -115,7 +128,7 @@ class SettingsMenu(Menu):
                 "action": self.onhints,
                 "value": lambda: "yes" if config.hints else "no",
             },
-            {"title": "Back", "action": lambda: "break", "value": None},
+            {"title": "Back", "action": lambda: "break", "style": blue},
         ]
 
     def onshowtarget(self):
@@ -132,19 +145,16 @@ class StartMenu(Menu):
             {
                 "title": "Custom",
                 "action": self.oncustom,
-                "value": None,
             },
             {
                 "title": "Easy",
                 "action": self.oneasy,
-                "value": None,
             },
             {
                 "title": "Hard",
                 "action": self.onhard,
-                "value": None,
             },
-            {"title": "Back", "action": lambda: "break", "value": None},
+            {"title": "Back", "action": lambda: "break", "style": blue},
         ]
 
     def oncustom(self):
