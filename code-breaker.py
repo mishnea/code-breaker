@@ -57,7 +57,7 @@ class Menu:
     def print(self):
         clear()
         for i, item in enumerate(self.items):
-            index = i + i
+            index = i + 1
             title = item["title"]
             try:
                 value = item["value"]()
@@ -160,14 +160,14 @@ class SettingsMenu(Menu):
 
     def withrows(self, k):
         if k == key.UP:
-            self.config.rows = 2 + (self.config.rows - 1) % 8
+            self.config.rows = 1 + (self.config.rows) % 9
             return
         if k == key.DOWN:
-            self.config.rows = 2 + (self.config.rows - 3) % 8
+            self.config.rows = 1 + (self.config.rows - 2) % 9
             return
         try:
             rows = int(k)
-            if not (2 <= rows < 10):
+            if not (1 <= rows < 10):
                 return
             self.config.rows = rows
             self.state = None
